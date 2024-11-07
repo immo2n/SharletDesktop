@@ -28,7 +28,7 @@ Sharlet is a simple JavaFX application that integrates with a web server (Jetty)
 
    ```bash
    git clone https://github.com/immo2n/SharletDesktop.git
-   cd sharlet
+   cd SharletDesktop
    ```
 
 2. **Set up Maven**
