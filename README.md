@@ -27,7 +27,7 @@ Sharlet is a simple JavaFX application that integrates with a web server (Jetty)
    Start by cloning the repository:
 
    ```bash
-   git clone https://github.com/yourusername/sharlet.git
+   git clone https://github.com/immo2n/sharlet.git
    cd sharlet
    ```
 
