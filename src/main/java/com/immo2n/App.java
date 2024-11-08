@@ -1,34 +1,41 @@
 package com.immo2n;
 
 import com.immo2n.Etc.AppConfig;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.web.WebView;
+import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.servlet.DefaultServlet;
 import org.eclipse.jetty.servlet.ServletContextHandler;
+import org.eclipse.jetty.servlet.ServletHolder;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.List;
 
 public class App extends Application {
 
     @Override
     public void start(Stage stage) {
-        // Create the WebView to display the webpage
         WebView webView = new WebView();
         webView.getEngine().load("http://localhost:" + AppConfig.APP_PORT);
 
-        // Create a refresh button
         Button refreshButton = new Button("Refresh");
         refreshButton.setOnAction(e -> webView.getEngine().reload());  // Reload the webpage when clicked
 
-        // Set up the layout
         BorderPane root = new BorderPane();
         root.setCenter(webView);
-        root.setTop(refreshButton);  // Add the button to the top of the window
+        root.setTop(refreshButton);
 
-        // Set up the scene
         Scene scene = new Scene(root, 800, 600);
         stage.setScene(scene);
         stage.setMinHeight(600);
@@ -54,13 +61,38 @@ public class App extends Application {
 
                 context.setResourceBase("src/main/resources/static");
                 context.addServlet(DefaultServlet.class, "/");
-                server.setHandler(context);
 
+                context.addServlet(new ServletHolder(new HttpServlet() {
+                    @Override
+                    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
+                        Platform.runLater(App::openFileDialog);
+                        response.setStatus(HttpServletResponse.SC_OK);
+                        response.getWriter().write("TRIGGERED_FILE_DIALOGUE");
+                    }
+                }), "/select-files");
+
+                server.setHandler(context);
                 server.start();
                 server.join();
+
             } catch (Exception e) {
-                // TODO: Handle this
+                e.printStackTrace();  // Handle the exception (could log or rethrow)
             }
         });
+    }
+
+    public static void openFileDialog() {
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Select files to send...");
+        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("All Files", "*.*"));
+        List<File> selectedFiles = fileChooser.showOpenMultipleDialog(new Stage());
+
+        if (selectedFiles != null && !selectedFiles.isEmpty()) {
+            for (File selectedFile : selectedFiles) {
+                System.out.println("File selected: " + selectedFile.getAbsolutePath());
+            }
+        } else {
+            System.out.println("No files were selected.");
+        }
     }
 }
