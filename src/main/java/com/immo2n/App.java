@@ -31,7 +31,8 @@ public class App extends Application {
         // Set up the scene
         Scene scene = new Scene(root, 800, 600);
         stage.setScene(scene);
-        stage.setResizable(false);
+        stage.setMinHeight(600);
+        stage.setMinWidth(400);
         String windowTitle = "Sharlet";
         stage.setTitle(windowTitle);
         stage.show();
