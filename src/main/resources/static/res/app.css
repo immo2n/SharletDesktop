@@ -176,15 +176,16 @@ footer .count i {
 }
 
 #file-list {
+    z-index: 1;
     position: absolute;
     overflow: hidden;
     overflow-y: auto;
     margin-top: 10px;
-    height: calc(100% - 75px);
+    height: calc(100% - 129px);
     width: calc(55vw - 20px);
     background: var(--white);
     border-radius: 5px;
-    box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.25);
+    box-shadow: 1px 1px 7px rgba(0, 0, 0, 0.25);
 }
 
 .file-alert {
@@ -201,7 +202,7 @@ footer .count i {
     height: 50px;
     border-bottom: 1px solid #eee;
     display: grid;
-    grid-template-columns: calc(100% - 50px) 50px;
+    grid-template-columns: calc(100% - 70px) 70px;
 }
 
 .file-item .remove-file {
@@ -210,7 +211,7 @@ footer .count i {
     justify-content: center;
     align-items: center;
     height: 100%;
-    width: 50px;
+    width: 70px;
     font-size: 1.6pc;
     color: #c4c4c4;
 }
@@ -218,4 +219,104 @@ footer .count i {
 .file-item .remove-file:hover {
     background:#fff !important;
     color: red
+}
+
+.file-info {
+    display: grid;
+    grid-template-columns: 50px auto;
+}
+
+.file-info .icon {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 1.3pc;
+    color: #ffffff;
+    background: #00bf06;
+}
+
+.file-info .name {
+    margin-left: 5px;
+    display: flex;
+    padding: 5px;
+    font-size: 0.8pc;
+    flex-direction: column;
+    align-items: start;
+}
+
+.file-info .name .full-name {
+    font-size: 0.8pc;
+    color: black;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    width: 99%;
+    cursor: pointer;
+}
+
+.file-info .name .full-name:hover {
+    text-decoration: underline;
+}
+
+.file-info .name .size {
+    font-size: 0.7pc;
+    color: #737373;
+}
+
+.search {
+    margin-top: 10px;
+    display: grid;
+    grid-template-columns: calc(100% - 100px) 50px 50px;
+    height: 45px;
+}
+
+.search .icon {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 1.2pc;
+    color: #00bf06;
+    cursor: pointer;
+}
+
+.search input:focus {
+    outline: none !important;
+    box-shadow: none;
+}
+
+button, input {
+    outline: none !important;
+}
+
+div:where(.swal2-container) button:where(.swal2-styled):where(.swal2-confirm){
+    background-color: #00bf06 !important;
+    outline: none !important;
+}
+
+::-webkit-scrollbar {
+    width: 12px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 0;
+}
+
+::-webkit-scrollbar-thumb {
+    background-color: #00bf06;
+    border-radius: 10px;
+    border: 3px solid #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background-color: #00a306;
+}
+
+
+.search .cs {
+    font-size: 1.6pc;
+}
+
+#status {
+    margin-left: 5px;
 }

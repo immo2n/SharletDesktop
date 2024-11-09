@@ -9,10 +9,8 @@ import jakarta.servlet.http.HttpServletResponse;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.scene.Scene;
-import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.VBox;
 import javafx.scene.web.WebView;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
@@ -23,16 +21,18 @@ import org.eclipse.jetty.servlet.ServletHolder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.awt.*;
 import java.io.File;
 import java.io.IOException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.List;
 
 public class App extends Application {
 
-    private static final List<File> selectedFiles = new ArrayList<>();
+    private static final HashMap<String, File> selectedFiles = new HashMap<>();
     private static final List<SelectedFile> selectedFilesPublic = new ArrayList<>();
-    private static final Set<String> selectedFileNames = new HashSet<>();
     private static final Logger log = LoggerFactory.getLogger(App.class);
     private static String selectionCheckKey = null, selectionCheckKeyHold;
     private static Integer lastIndex = 0;
@@ -62,10 +62,10 @@ public class App extends Application {
         root.setCenter(webView);
         root.setTop(refreshButton);
 
-        Scene scene = new Scene(root, 800, 600);
+        Scene scene = new Scene(root, 1000, 800);
         stage.setScene(scene);
-        stage.setMinHeight(600);
-        stage.setMinWidth(400);
+        stage.setMinHeight(800);
+        stage.setMinWidth(600);
         String windowTitle = "Sharlet";
         stage.setTitle(windowTitle);
         stage.show();
@@ -102,6 +102,63 @@ public class App extends Application {
                 context.addServlet(new ServletHolder(new HttpServlet() {
                     @Override
                     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
+                        selectedFiles.clear();
+                        selectedFilesPublic.clear();
+                        lastIndex = 0;
+                        response.setStatus(HttpServletResponse.SC_OK);
+                        response.getWriter().write("OK");
+                    }
+                }), "/clear-all");
+
+                context.addServlet(new ServletHolder(new HttpServlet() {
+                    @Override
+                    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
+                        String hash = request.getParameter("hash");
+                        if(hash == null || hash.isEmpty()) {
+                            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                            response.getWriter().write("HASH_MISSING");
+                            return;
+                        }
+                        File removedFile = selectedFiles.remove(hash);
+                        if (removedFile != null) {
+                            selectedFilesPublic.removeIf(selectedFile -> selectedFile.getHash().equals(hash));
+                            lastIndex = selectedFilesPublic.size();
+                        }
+                        response.setStatus(HttpServletResponse.SC_OK);
+                        response.getWriter().write("OK");
+                    }
+                }), "/clear");
+
+                context.addServlet(new ServletHolder(new HttpServlet() {
+                    @Override
+                    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
+                        String hash = request.getParameter("hash");
+                        if(hash == null || hash.isEmpty()) {
+                            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                            response.getWriter().write("HASH_MISSING");
+                            return;
+                        }
+                        File file = selectedFiles.get(hash);
+                        if (file == null) {
+                            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+                            response.getWriter().write("FILE_NOT_FOUND");
+                            return;
+                        }
+                        if(Desktop.isDesktopSupported()){
+                            Desktop.getDesktop().open(file);
+                        }
+                        else {
+                            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                            response.getWriter().write("PREVIEW_NOT_SUPPORTED");
+                        }
+                        response.setStatus(HttpServletResponse.SC_OK);
+                        response.getWriter().write("OK");
+                    }
+                }), "/preview");
+
+                context.addServlet(new ServletHolder(new HttpServlet() {
+                    @Override
+                    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
                         if (selectionCheckKeyHold == null) {
                             response.setStatus(HttpServletResponse.SC_OK);
                             response.getWriter().write("RESET");
@@ -126,7 +183,6 @@ public class App extends Application {
                             lastIndex = selectedFilesPublic.size();
                             response.getWriter().write(new Gson().toJson(newFiles));
                             selectionCheckKey = null;
-
                         } else {
                             response.setStatus(HttpServletResponse.SC_OK);
                             response.getWriter().write("INVALID_KEY");
@@ -165,20 +221,13 @@ public class App extends Application {
 
             fileAdderThread = new Thread(() -> {
                 if (files != null && !files.isEmpty()) {
-                    List<SelectedFile> newFiles = new ArrayList<>();
                     for (File file : files) {
                         if (file.isDirectory()) {
-                            addFilesFromDirectory(file, newFiles);
+                            addFilesFromDirectory(file);
                         } else {
-                            addFileToSelection(file, newFiles);
+                            addFileToSelection(file);
                         }
                     }
-
-                    if (!newFiles.isEmpty()) {
-                        selectedFilesPublic.addAll(newFiles);
-                        selectedFiles.addAll(files);
-                    }
-
                     selectionCheckKey = selectionCheckKeyHold;
                 } else {
                     selectionCheckKeyHold = null;
@@ -190,26 +239,28 @@ public class App extends Application {
         });
     }
 
-    private static void addFilesFromDirectory(File directory, List<SelectedFile> newFiles) {
+    private static void addFilesFromDirectory(File directory) {
         File[] files = directory.listFiles();
         if (files != null) {
             for (File file : files) {
                 if (file.isDirectory()) {
-                    addFilesFromDirectory(file, newFiles);
+                    addFilesFromDirectory(file);
                 } else {
-                    addFileToSelection(file, newFiles);
+                    addFileToSelection(file);
                 }
             }
         }
     }
 
-    private static void addFileToSelection(File file, List<SelectedFile> newFiles) {
-        if (selectedFileNames.contains(file.getName())) return;
+    private static void addFileToSelection(File file) {
+        String hash = md5(file.getName());
+        if(selectedFiles.containsKey(hash)) return;
         SelectedFile selectedFile = new SelectedFile();
         selectedFile.setName(file.getName());
         selectedFile.setSize(String.valueOf(file.length()));
-        newFiles.add(selectedFile);
-        selectedFileNames.add(file.getName());
+        selectedFile.setHash(hash);
+        selectedFiles.put(hash, file);
+        selectedFilesPublic.add(selectedFile);
     }
 
     private static List<SelectedFile> getNewFiles(int index) {
@@ -218,5 +269,20 @@ public class App extends Application {
             newFiles.add(selectedFilesPublic.get(i));
         }
         return newFiles;
+    }
+
+    public static String md5(String input) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("MD5");
+            byte[] messageDigest = md.digest(input.getBytes());
+            StringBuilder sb = new StringBuilder();
+            for (byte b : messageDigest) {
+                sb.append(String.format("%02x", b));
+            }
+            return sb.toString();
+        } catch (NoSuchAlgorithmException e) {
+            System.out.println("Sharlet process: MD5 algorithm not found.");
+            return null;
+        }
     }
 }
