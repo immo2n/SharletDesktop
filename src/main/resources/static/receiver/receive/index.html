@@ -1,0 +1,158 @@
+<!DOCTYPE html lang="en">
+<html>
+  <head>
+    <link href="/font.css" rel="stylesheet">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <title>Sharlet - Android/iOs/PC receiver</title>
+    <link rel="stylesheet" href="/css/main.css">
+    <link rel="stylesheet" href="/plugins/fontawesome/css/all.min.css">
+
+    <link rel="apple-touch-icon" sizes="57x57" href="/img/favs/apple-icon-57x57.png">
+    <link rel="apple-touch-icon" sizes="60x60" href="/img/favs/apple-icon-60x60.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="/img/favs/apple-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="76x76" href="/img/favs/apple-icon-76x76.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="/img/favs/apple-icon-114x114.png">
+    <link rel="apple-touch-icon" sizes="120x120" href="/img/favs/apple-icon-120x120.png">
+    <link rel="apple-touch-icon" sizes="144x144" href="/img/favs/apple-icon-144x144.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="/img/favs/apple-icon-152x152.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/img/favs/apple-icon-180x180.png">
+    <link rel="icon" type="image/png" sizes="192x192"  href="/img/favs/android-icon-192x192.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/img/favs/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="96x96" href="/img/favs/favicon-96x96.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/img/favs/favicon-16x16.png">
+    <link rel="manifest" href="/img/favs/manifest.json">
+    <meta name="msapplication-TileColor" content="#00bf06">
+    <meta name="msapplication-TileImage" content="/ms-icon-144x144.png">
+    <meta name="theme-color" content="#00bf06">
+
+  </head>
+  <body>
+    <div class="overlay hide" id="overlay">Drag files here to send</div>
+    <section id="loading" class="cf">
+      <img src="/img/logo.png" width="auto" height="20%" alt="Sharlet">
+    </section>
+    <section id="main">
+      <div class="head">
+        <div class="g1 cf">
+          <div class="but ibut" id="portal_close">
+            <i class="fa fa-times"></i>
+          </div>
+          <div class="t"> Incoming portal </div>
+          <div class="but ibut" id="info_open">
+            <i class="fa fa-wifi wi"></i>
+          </div>
+        </div>
+        <div>
+          <div class="g2">
+            <div id="status_icon">
+              <i class="fa fa-exchange ei"></i> Incoming...
+            </div>
+            <div id="speed" style="justify-content:right"> Measuring... <i class="fa fa-infinity ii"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="main_body">
+        <div id="info">
+          <div class="gi mb15">
+            <div>
+              <span class="ti">Portal information</span>
+            </div>
+            <div class="cf jr" id="info_refresh"> Refresh </div>
+          </div>
+          <div class="ig">
+            <div class="cf jl">
+              <i class="fa fa-infinity"></i>
+            </div>
+            <div class="cf jl" id="i_max_s"></div>
+          </div>
+          <div class="ig">
+            <div class="cf jl">
+              <i class="fa fa-exchange"></i>
+            </div>
+            <div class="cf jl" id="i_to_band"></div>
+          </div>
+          <div class="ig">
+            <div class="cf jl">
+              <i class="fa fa-boxes"></i>
+            </div>
+            <div class="cf jl" id="total_packs"></div>
+          </div>
+          <div class="ig">
+            <div class="cf jl">
+              <i class="fa fa-network-wired"></i>
+            </div>
+            <div class="cf jl" id="net_name"></div>
+          </div>
+          <div class="ig">
+            <div class="cf jl">
+              <i class="fa fa-sync-alt"></i>
+            </div>
+            <div class="cf jl" id="link_speed"></div>
+          </div>
+          <div class="ig">
+            <div class="cf jl">
+              <i class="fa fa-desktop"></i>
+            </div>
+            <div class="cf jl" id="link"> iOs/PC link: Detecting... </div>
+          </div>
+          <div class="ig">
+            <div class="cf jl">
+              <i class="fa fa-key"></i>
+            </div>
+            <div class="cf jl" id="pin"> Pin(iOs/PC): Detecting... </div>
+          </div>
+          <div class="ifo">
+            <div id="info_close">
+              <b>Close</b>
+            </div>
+          </div>
+        </div>
+        <div id="dialogue">
+          <div class="cf">
+            <i id="d_icon" class="fa fa-question-circle"></i>
+          </div>
+          <div id="d_title" class="cf">Are you sure?</div>
+          <div id="d_subtitle">Sure about the action?</div>
+          <div class="d_buts">
+            <div id="d_close" class="cf"> Close </div>
+            <div id="d_okay" class="cf"> Okay </div>
+          </div>
+        </div>
+        <div class="s_h">
+          <div class="t" id="main_d"> Waiting... </div>
+          <div>
+            <div class="lb">
+              <div id="total_progress" class="lm"></div>
+            </div>
+          </div>
+          <div class="t" id="cur_file" style="margin-top:10px"> Waiting... </div>
+          <div>
+            <div class="lb">
+              <div id="single_progress" class="lm"></div>
+            </div>
+          </div>
+        </div>
+        <div id="files_grid"></div>
+    </section>
+    <section id="sub">
+      <div class="ti">
+        <div class="cf but ibut" onclick="sub_close()">
+          <i class="fa fa-times"></i>
+        </div>
+        <div class="na"> Folder </div>
+      </div>
+      <div class="sub_body"></div>
+    </section>
+    <div id="mask"></div>
+    <div class="cf">
+      <div id="snackbar"></div>
+    </div>
+    <script src="/js/query.js"></script>
+    <script src="/js/jszip.min.js"></script>
+    <script src="/js/saver.js"></script>
+    <script src="/js/main.js"></script>
+  </body>
+</html>
