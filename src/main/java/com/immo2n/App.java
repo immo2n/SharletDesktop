@@ -1,6 +1,7 @@
 package com.immo2n;
 
 import com.google.gson.Gson;
+import com.immo2n.Core.FileServer;
 import com.immo2n.DataClasses.SelectedFile;
 import com.immo2n.Etc.AppConfig;
 import jakarta.servlet.http.HttpServlet;
@@ -32,12 +33,14 @@ import java.util.List;
 public class App extends Application {
 
     private static final HashMap<String, File> selectedFiles = new HashMap<>();
-    private static final List<SelectedFile> selectedFilesPublic = new ArrayList<>();
+    public static final List<SelectedFile> selectedFilesPublic = new ArrayList<>();
     private static final Logger log = LoggerFactory.getLogger(App.class);
     private static String selectionCheckKey = null, selectionCheckKeyHold;
     private static Integer lastIndex = 0;
     private static Server appServer;
-    private static Thread appUiThread;
+    private static Thread appUiThread, fileServerThread;
+
+    private static FileServer fileServer;
 
     @Override
     public void stop() throws Exception {
@@ -47,6 +50,12 @@ public class App extends Application {
         }
         if (appUiThread != null && appUiThread.isAlive()) {
             appUiThread.join();
+        }
+        if (fileServer != null) {
+            fileServer.stop();
+        }
+        if (fileServerThread != null && fileServerThread.isAlive()) {
+            fileServerThread.join();
         }
     }
 
@@ -73,7 +82,21 @@ public class App extends Application {
 
     public static void main(String[] args) {
         appUiThread = getAppUIthread();
+        fileServerThread = new Thread(() -> {
+            try {
+                fileServer = new FileServer(
+                        "192.168.0.198",
+                        AppConfig.FILE_SERVER_PORT,
+                        "12345"
+                );
+                fileServer.start();
+            }
+            catch (Exception e) {
+                log.error("e", e);
+            }
+        });
         appUiThread.start();
+        fileServerThread.start();
         launch(args);
     }
 
