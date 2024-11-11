@@ -2,6 +2,8 @@ package com.immo2n.Core;
 
 import com.google.gson.Gson;
 import com.immo2n.App;
+import com.immo2n.DataClasses.FileServerInfo;
+import com.immo2n.DataClasses.SelectedFile;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
@@ -65,6 +67,12 @@ public class FileServer {
         server.createContext("/img/favs/apple-icon-152x152.png", loadStaticFile(staticLocation + "/receiver/img/favs/apple-icon-152x152.png"));
         server.createContext("/img/favs/apple-icon-180x180.png", loadStaticFile(staticLocation + "/receiver/img/favs/apple-icon-180x180.png"));
         server.createContext("/img/favs/android-icon-192x192.png", loadStaticFile(staticLocation + "/receiver/img/favs/android-icon-192x192.png"));
+        server.createContext("/img/favs/android-icon-144x144.png", loadStaticFile(staticLocation + "/receiver/img/favs/android-icon-144x144.png"));
+        server.createContext("/img/favs/android-icon-96x96.png", loadStaticFile(staticLocation + "/receiver/img/favs/android-icon-96x96.png"));
+        server.createContext("/img/favs/android-icon-72x72.png", loadStaticFile(staticLocation + "/receiver/img/favs/android-icon-72x72.png"));
+        server.createContext("/img/favs/android-icon-48x48.png", loadStaticFile(staticLocation + "/receiver/img/favs/android-icon-48x48.png"));
+        server.createContext("/img/favs/android-icon-36x36.png", loadStaticFile(staticLocation + "/receiver/img/favs/android-icon-36x36.png"));
+
         server.createContext("/img/favs/favicon-32x32.png", loadStaticFile(staticLocation + "/receiver/img/favs/favicon-32x32.png"));
         server.createContext("/img/favs/favicon-96x96.png", loadStaticFile(staticLocation + "/receiver/img/favs/favicon-96x96.png"));
         server.createContext("/img/favs/favicon-16x16.png", loadStaticFile(staticLocation + "/receiver/img/favs/favicon-16x16.png"));
@@ -103,11 +111,11 @@ public class FileServer {
                 sendResponse(httpExchange, response);
                 return;
             }
-            /*
-             * Send path info to the client
-             * */
-            String response = "Ok boy";
-            sendResponse(httpExchange, response);
+            FileServerInfo info = new FileServerInfo();
+            info.setLinkSpeed("1000 Mbps");
+            info.setSsid("Sharlet Desktop - File Server");
+            info.setBucketChecksum(App.bucketChecksum);
+            sendResponse(httpExchange, gson.toJson(info));
         });
     }
 
@@ -181,6 +189,34 @@ public class FileServer {
             String response = gson.toJson(App.selectedFilesPublic);
             sendResponse(httpExchange, response);
         });
+    }
+
+    public void syncFilesContexts() {
+        for (SelectedFile file : App.selectedFilesPublic) {
+            if(serverPin != null){
+                try {
+                    server.removeContext("/file/" + serverPin + "/" + file.getHash());
+                } catch (Exception e) {
+                    log.error(e.toString());
+                }
+            }
+            server.createContext("/file/" + serverPin + "/" + file.getHash(), loadDynamicFile(file));
+        }
+    }
+
+    private HttpHandler loadDynamicFile(SelectedFile file) {
+        return httpExchange -> {
+            String hash = file.getHash();
+            if(App.selectedFiles.containsKey(hash)){
+                File mainFile = App.selectedFiles.get(hash);
+                LoadFile loadFile = new LoadFile(mainFile.getAbsolutePath());
+                loadFile.handle(httpExchange);
+            }
+            else {
+                String response = "COULDN'T SERVE: FILE IS EMPTY OR DELETED OR PIN CHANGED";
+                sendResponse(httpExchange, response);
+            }
+        };
     }
 
     private void sendResponse(HttpExchange httpExchange, String response) throws IOException {

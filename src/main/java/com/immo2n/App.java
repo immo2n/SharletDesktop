@@ -32,7 +32,8 @@ import java.util.List;
 
 public class App extends Application {
 
-    private static final HashMap<String, File> selectedFiles = new HashMap<>();
+    public static String bucketChecksum = "EMPTY";
+    public static final HashMap<String, File> selectedFiles = new HashMap<>();
     public static final List<SelectedFile> selectedFilesPublic = new ArrayList<>();
     private static final Logger log = LoggerFactory.getLogger(App.class);
     private static String selectionCheckKey = null, selectionCheckKeyHold;
@@ -251,6 +252,8 @@ public class App extends Application {
                             addFileToSelection(file);
                         }
                     }
+                    fileServer.syncFilesContexts();
+                    bucketChecksum = App.md5(Integer.toString(App.selectedFilesPublic.size()));
                     selectionCheckKey = selectionCheckKeyHold;
                 } else {
                     selectionCheckKeyHold = null;

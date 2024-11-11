@@ -9,7 +9,7 @@
 }
 
 .li,a {
-    color: var(--primary-deep)
+    color: #1fd825;
 }
 
 #sub .ti i,.g1 i {
@@ -72,7 +72,7 @@ body,html {
     font-family: 'Trebuchet MS', sans-serif;
     margin: 0 auto;
     user-select: none;
-    background-color: var(--primary-deep)!important
+    background-color: #0bb810 !important;
 }
 
 #sub {
@@ -98,7 +98,7 @@ body,html {
     width: 100%;
     height: calc(100% - 50px);
     background: var(--white);
-    overflow: scroll;
+    overflow: auto;
     overflow-x: hidden
 }
 
@@ -479,7 +479,7 @@ circle {
 }
 
 .fg_t,.file_child .ti,.file_child i {
-    color: var(--primary-text)
+    color: #09c610;
 }
 
 .lb {

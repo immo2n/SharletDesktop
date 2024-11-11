@@ -29,49 +29,72 @@ TOTAL_PACKS = "Total packages: 0",
 NET_NAME = "Network: Detecting...",
 DATA_SETS = {},
 LINK_SPEED = "Link speed: 0MBPS";
+window.bucketChecksum = null;
 const info_up = e=>{
-    e && "object" == typeof e && (e.link_speed && (LINK_SPEED = "Link speed: " + e.link_speed),
-    e.ssid && (NET_NAME = "Network: " + e.ssid))
+    e && "object" == typeof e && (e.linkSpeed && (LINK_SPEED = "Link speed: " + e.link_speed),
+    e.ssid && (NET_NAME = "Network: " + e.ssid));
+    window.bucketChecksum = e.bucketChecksum;
 }
 ;
 let err = 0;
 const info_spin = p=>{
     err >= 10 && (snack_show("Sync error!"),
     err = 0),
-    $.post("/" + p + "/info").done(d=>{
-        try {
-            eval("info_up(" + d + ")"),
-            err = 0
-        } catch (e) {
-            err++
+    $.post("/info", {
+        p: p
+    }).done(d=>{
+        if(d === 'WRONG-PIN'){
+            snack_show("PIN was changed! Exitting...");
+            setTimeout(() => {
+                window.location.href = "/bucket_error.html";
+            });
+            return;
         }
-        setTimeout(()=>{
-            //info_spin(p)
+        else {
+            try {
+                let dx = JSON.parse(d);
+                if(window.bucketChecksum !== dx.bucketChecksum){
+                    $.post("/bucket", { p: p })
+                    .done(response => {
+                        if (response !== null && response !== "" && response !== "WRONG-PIN") {
+                            bucket_data_load(response, p);
+                        }
+                    })
+                    .fail(() => {
+                        window.location.href = "/bucket_error.html";
+                    });
+                }
+                eval("info_up(" + d + ")");
+                err = 0;
+            } catch (e) {
+                err++
+            }
+            setTimeout(()=>{
+                info_spin(p)
+            }
+            , 1e3);
         }
-        , 1e3)
     }
     ).fail(()=>{
         err++,
         setTimeout(()=>{
-            //info_spin(p)
+            info_spin(p)
         }
         , 1e3)
     }
     )
 };
 
-if(main_link = window.location.href, main_link) {
-    let e = main_link.substr(main_link.indexOf("x-") + 2, 5);
-    e && 5 == e.length && ($.post("/bucket", {p: e}).done(i=>{
-        (null!=i&&i&&i!="WRONG-PIN")?bucket_data_load(i, e):window.location.href = "/bucket_error.html"
+let mainLink = window.location.href;
+
+if (mainLink) {
+    let extractedCode = mainLink.substr(mainLink.indexOf("x-") + 2, 5);
+    if (extractedCode && extractedCode.length === 5) {
+        $("#link").text("iOS/PC link: " + location.protocol + "//" + location.host);
+        $("#pin").text("Pin(iOS/PC): " + extractedCode);
+        
+        info_spin(extractedCode);
     }
-    ).fail(()=>{
-        window.location.href = "/bucket_error.html"
-    }
-    ),
-    $("#link").text("iOs/PC link: "+location.protocol+ "//" +location.host),
-    $("#pin").text("Pin(iOs/PC): " + e),
-    info_spin(e))
 }
 
 window.CURRENT_FILE_INDEX = 0;
@@ -249,6 +272,7 @@ portal_close.click(()=>{
 }
 );
 const laod_bucket_links = (e,i)=>{
+    $("#files_grid").html("");
     if (e && e.length > 0) {
         let t = []
           , a = []
@@ -283,18 +307,6 @@ const laod_bucket_links = (e,i)=>{
     }
 }
   , start_receive = (e,i,t)=>{
-    if(null != getCookie("received") && getCookie("received") == "done"){
-        window.cache_e = e,
-        window.cache_i = i,
-        window.cache_t = t;
-        window.kill_on_close = true;
-        let e1 = new make_dialogue;
-        e1.set_title("Restart receive?"),
-        e1.set_subtitle("It seems you have already received the files. Do you wish to start receiving again?"),
-        e1.set_okay_action("(()=>{window.kill_on_close=false;document.cookie = \"received=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;\";(new make_dialogue).close();start_receive(window.cache_e, window.cache_i, window.cache_t)})()"),
-        e1.open();
-        return;
-    }
     if (!e || !e[t])
         return !1;
     target = e[t],
@@ -335,7 +347,15 @@ window.speed_byte_counter = 0;
 l_m = 0;
 window.last_load = 0;
 
+window.loadedLinks = [];
+
 const load_link = (e,i,t,a,s)=>{
+    if(window.loadedLinks.includes(window.hash_set[e])) {
+        if(s.length > t + 1){
+            load_link(e = s[t + 1], i, t + 1, a, s);
+        }
+        return;
+    };
     let l = new XMLHttpRequest;
     e && e.length > 0 && (l.addEventListener("progress", function(e) {
 
@@ -393,6 +413,7 @@ const load_link = (e,i,t,a,s)=>{
             $("#cur_file").text(get_file_name(e)), window.last_load = 0;
         else if (3 == l.readyState) window.c_a = a
         else if (4 == l.readyState) {
+            window.loadedLinks.push(window.hash_set[e]);
             window.c_t++;
             if (TOTAL_PACKS = "Total packages: " + s.length,
             DATA_SETS[get_file_name(e)] = l.response,
@@ -413,31 +434,113 @@ const load_link = (e,i,t,a,s)=>{
         s && s.length > t + 1 && load_link(e = s[t + 1], i, t + 1, a, s),
         snack_show("Skipped for error!")
     }
-    )),
-    l.responseType = "blob";
-    //l.open("post", "/" + i + "/" + window.link_set[e]);
-    //l.send("p="+window.pass_set[e])
-}
-  , init_download = ()=>{
-    let e = Object.keys(DATA_SETS);
-    if (0 != e.length)
-        if (snack_show("Saving...",0),
-        e.length < 6)
-            for (x = 0; x < e.length; x++)
-                saveAs(DATA_SETS[Object.keys(DATA_SETS)[x]], Object.keys(DATA_SETS)[x]),
-                snack_show("Saved")
-        else {
-            for (x = 0; x < e.length; x++) {
-                let i = e[x]
-                  , t = DATA_SETS[i];
-                zip.file(i, t)
+    ));
+    if(window.hash_set[e] && window.hash_set[e] != ""){
+        l.responseType = "blob";
+        l.open("post", "/file/" + i + "/" + window.hash_set[e]);
+        l.send();
+    }
+};
+
+const MAX_FILE_SIZE = 500 * 1024 * 1024;
+const ZIP_SIZE_LIMIT = 1000 * 1024 * 1024;
+let problematicFiles = [];
+let validFiles = [];
+let largeFiles = [];
+let savedFiles = JSON.parse(localStorage.getItem("savedFiles") || "[]");
+
+const init_download = () => {
+    let fileKeys = Object.keys(DATA_SETS);
+    
+    if (fileKeys.length > 0) {
+        snack_show("Saving...", 0);
+
+        validFiles = [];
+        largeFiles = [];
+
+        fileKeys.forEach(fileName => {
+            
+            if (savedFiles.includes(fileName)) {
+                return;
             }
-            zip.generateAsync({
-                type: "blob"
-            }).then(function(i) {
-                saveAs(i, "Received(Sharlet-" + e.length + ").zip"),
-                snack_show("Saved")
-            })
+
+            try {
+                const fileData = DATA_SETS[fileName];
+                const fileSize = fileData.size;
+
+                if (fileSize > MAX_FILE_SIZE) {
+                    largeFiles.push(fileName);
+                } else {
+                    validFiles.push(fileName);
+                }
+            } catch (error) {
+                problematicFiles.push(fileName);
+            }
+        });
+
+        if (largeFiles.length > 0) {
+            largeFiles.forEach(fileName => {
+                const fileData = DATA_SETS[fileName];
+                saveAs(fileData, fileName);
+                savedFiles.push(fileName);
+                snack_show(`${fileName} saved separately.`, 0);
+            });
         }
-        setCookie("received", "done");
-}
+
+        if (validFiles.length > 0) {
+
+            if(validFiles.length === 1){
+                const fileData = DATA_SETS[validFiles[0]];
+                saveAs(fileData, validFiles[0]);
+                savedFiles.push(validFiles[0]);
+                snack_show(`Saved ${validFiles[0]}`);
+                localStorage.setItem("savedFiles", JSON.stringify(savedFiles));
+                return;
+            }
+            
+            let zip = new JSZip();
+            let currentZipSize = 0;
+            let zipCounter = 1;
+
+            validFiles.forEach(fileName => {
+                const fileData = DATA_SETS[fileName];
+                currentZipSize += fileData.size;
+
+                if (currentZipSize > ZIP_SIZE_LIMIT) {
+                    zip.generateAsync({ type: "blob" }).then(zipBlob => {
+                        saveAs(zipBlob, `Received(Sharlet-${zipCounter}).zip`);
+                        snack_show(`Saved part ${zipCounter}`);
+                        zipCounter++;
+                    }).catch(error => {
+                        console.error("Error generating ZIP:", error);
+                        snack_show("Error saving ZIP. Please check file permissions.");
+                    });
+
+                    zip = new JSZip();
+                    currentZipSize = fileData.size;
+                }
+
+                zip.file(fileName, fileData);
+                savedFiles.push(fileName);
+            });
+
+            zip.generateAsync({ type: "blob" }).then(zipBlob => {
+                saveAs(zipBlob, `Received(Sharlet-${zipCounter}).zip`);
+                snack_show(`Saved part ${zipCounter}`);
+                localStorage.setItem("savedFiles", JSON.stringify(savedFiles));
+            }).catch(error => {
+                console.error("Error generating final ZIP:", error);
+                snack_show("Error saving final ZIP. Please check file permissions.");
+            });
+        } else {
+            snack_show("No valid files to save.");
+            let e1 = new make_dialogue;
+            e1.set_title("Save again?"),
+            e1.set_subtitle("It seems you have already saved all the files. Do you wish to save again?"),
+            e1.set_okay_action("(()=>{localStorage.removeItem('savedFiles');(new make_dialogue).close();savedFiles=[];init_download()})()"),
+            e1.open();
+        }
+    } else {
+        snack_show("No files found.");
+    }
+};

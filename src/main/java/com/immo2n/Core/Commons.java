@@ -1,5 +1,7 @@
 package com.immo2n.Core;
 
+import java.util.Random;
+
 public class Commons {
     public static String extractParameterValue(String requestBody, String parameterName) {
         String[] pairs = requestBody.split("&");
