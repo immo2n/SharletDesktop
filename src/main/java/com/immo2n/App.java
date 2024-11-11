@@ -4,17 +4,13 @@ import com.google.gson.Gson;
 import com.immo2n.Core.FileServer;
 import com.immo2n.DataClasses.SelectedFile;
 import com.immo2n.Etc.AppConfig;
-import com.squareup.okhttp.OkHttpClient;
-import com.squareup.okhttp.Request;
-import com.squareup.okhttp.Response;
-import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.HttpHandler;
-import com.sun.net.httpserver.HttpServer;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import javafx.animation.PauseTransition;
 import javafx.application.Application;
 import javafx.application.Platform;
+import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
@@ -22,9 +18,14 @@ import javafx.scene.control.ButtonType;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
+import javafx.scene.text.Text;
 import javafx.scene.web.WebView;
+import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
+import javafx.util.Duration;
+import org.eclipse.jetty.server.Handler;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.servlet.DefaultServlet;
 import org.eclipse.jetty.servlet.ServletContextHandler;
@@ -83,65 +84,140 @@ public class App extends Application {
         boolean needInstall = installer.isInstalled();
         String defaultLocation = Installer.staticPath;
 
-        if(needInstall){
-            FileChooser fileChooser = new FileChooser();
-            fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Directories", "*"));
-            fileChooser.setInitialDirectory(new File(defaultLocation));
-            File selectedDirectory = fileChooser.showSaveDialog(stage);
-            if (selectedDirectory != null) {
-                String downloadUrl = "https://example.com/resource.zip";
-                new Thread(() -> downloadZip(selectedDirectory, downloadUrl, stage)).start();
-            }
+        if (needInstall) {
+            VBox installWindow = new VBox(10);
+            installWindow.setStyle("-fx-padding: 20; -fx-alignment: center;");
+
+            Text descriptionText = new Text("Select the installation path for static files");
+            installWindow.getChildren().add(descriptionText);
+
+            Text pathText = new Text("Installation Path: " + defaultLocation);
+            installWindow.getChildren().add(pathText);
+
+            Button choosePathButton = new Button("Choose Different Path");
+            installWindow.getChildren().add(choosePathButton);
+
+            ProgressBar progressBar = new ProgressBar(0);
+            progressBar.setPrefWidth(300);
+            progressBar.setVisible(false);
+            installWindow.getChildren().add(progressBar);
+
+            Text progressInfo = new Text("Progress: 0% - Downloaded: 0 MB of 0 MB");
+            progressInfo.setVisible(false);
+            installWindow.getChildren().add(progressInfo);
+
+            Text downloadSpeed = new Text("Speed: 0 KB/s");
+            downloadSpeed.setVisible(false);
+            installWindow.getChildren().add(downloadSpeed);
+
+            Button installButton = new Button("Start Installation");
+            installWindow.getChildren().add(installButton);
+
+            Scene scene = new Scene(installWindow, 800, 500);
+            stage.setTitle("Sharlet Desktop: Installation");
+            stage.setScene(scene);
+            stage.show();
+
+            choosePathButton.setOnAction(e -> {
+                DirectoryChooser directoryChooser = new DirectoryChooser();
+                directoryChooser.setInitialDirectory(new File(defaultLocation));
+                File selectedDirectory = directoryChooser.showDialog(stage);
+                if (selectedDirectory != null) {
+                    pathText.setText("Installation Path: " + selectedDirectory.getAbsolutePath());
+                    installButton.setDisable(false);
+                }
+            });
+
+            installButton.setOnAction(e -> {
+                String selectedPath = pathText.getText().replace("Installation Path: ", "");
+                File destinationDir = new File(selectedPath);
+
+                pathText.setVisible(false);
+                choosePathButton.setVisible(false);
+                installButton.setVisible(false);
+                progressBar.setVisible(true);
+                progressInfo.setVisible(true);
+                downloadSpeed.setVisible(true);
+
+                descriptionText.setText("Downloading resources...");
+
+                String downloadUrl = "https://github.com/immo2n/immo2n.github.io/raw/refs/heads/main/app-data/SharletDesktop/static.zip";
+                new Thread(() -> downloadZip(destinationDir, downloadUrl, progressBar, progressInfo, downloadSpeed, stage)).start();
+            });
+
+        } else {
+            startApp(stage);
         }
-        else startApp(stage);
     }
 
-    private void downloadZip(File selectedDirectory, String downloadUrl, Stage stage) {
+    private void downloadZip(File selectedDirectory, String downloadUrl, ProgressBar progressBar, Text progressInfo, Text downloadSpeed, Stage stage) {
+        Platform.runLater(() -> {
+            VBox vbox = new VBox(10);  // VBox with 10px spacing between components
+            vbox.setAlignment(Pos.CENTER);  // Center-aligns the VBox content
+            vbox.getChildren().addAll(progressInfo, downloadSpeed, progressBar);
 
-        ProgressBar progressBar = new ProgressBar(0);
-        progressBar.setPrefWidth(300);
+            StackPane root = new StackPane(vbox);
+            Scene scene = new Scene(root, 500, 200);
 
-        StackPane root = new StackPane();
-        root.getChildren().add(progressBar);
-        Scene scene = new Scene(root, 400, 200);
-
-        stage.setTitle("Downloading Resources...");
-        stage.setScene(scene);
-        Platform.runLater(stage::show);
-
-        OkHttpClient client = new OkHttpClient();
-        Request request = new Request.Builder().url(downloadUrl).build();
-
-        Response response;
+            stage.setTitle("Downloading Resources...");
+            stage.setScene(scene);
+            stage.show();
+        });
         try {
-            response = client.newCall(request).execute();
+            URL url = new URL(downloadUrl);
+            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("GET");
+            connection.setDoInput(true);
+            connection.setConnectTimeout(5000);
+            connection.setReadTimeout(5000);
 
-            if (!response.isSuccessful()) {
-                throw new IOException("Failed to download file: " + response);
+            int responseCode = connection.getResponseCode();
+            if (responseCode != HttpURLConnection.HTTP_OK) {
+                throw new IOException("Failed to download file: HTTP code " + responseCode);
             }
 
-            long contentLength = response.body().contentLength();
-            InputStream inputStream = response.body().byteStream();
+            long contentLength = connection.getContentLengthLong();
 
             File outputFile = new File(selectedDirectory.getAbsoluteFile(), "resources.zip");
-            try (FileOutputStream outputStream = new FileOutputStream(outputFile)) {
+
+            try (InputStream inputStream = connection.getInputStream(); FileOutputStream outputStream = new FileOutputStream(outputFile)) {
                 byte[] buffer = new byte[8192];
                 long totalBytesRead = 0;
                 int bytesRead;
+                long startTime = System.currentTimeMillis();
 
                 while ((bytesRead = inputStream.read(buffer)) != -1) {
                     outputStream.write(buffer, 0, bytesRead);
                     totalBytesRead += bytesRead;
+
                     double progress = (double) totalBytesRead / contentLength;
                     Platform.runLater(() -> progressBar.setProgress(progress));
+
+                    long elapsed = System.currentTimeMillis() - startTime;
+                    double speed = (totalBytesRead / 1024.0) / (elapsed / 1000.0);
+                    String speedText = String.format("Speed: %.2f KB/s", speed);
+
+                    String progressText = String.format("Progress: %.2f%% - Downloaded: %.2f MB of %.2f MB",
+                            progress * 100, totalBytesRead / (1024.0 * 1024.0), contentLength / (1024.0 * 1024.0));
+
+                    Platform.runLater(() -> {
+                        progressInfo.setText(progressText);
+                        downloadSpeed.setText(speedText);
+                    });
                 }
 
                 Platform.runLater(() -> {
-                    Alert alert = new Alert(Alert.AlertType.INFORMATION, "Download Completed!", ButtonType.OK);
-                    alert.showAndWait();
-
-                    System.out.println("CAN UNZIP HERE!!!");
-
+                    progressInfo.setText("Extracting resources...");
+                    new Thread(() -> {
+                        try {
+                            unzip(outputFile, selectedDirectory);
+                            Platform.runLater(() -> progressInfo.setText("Installation completed. Starting the application..."));
+                            if(!outputFile.delete()) System.out.println("Failed to delete the zip file");
+                            Installer.writeConfig(selectedDirectory.getAbsolutePath());
+                        } catch (IOException e) {
+                            Platform.runLater(() -> progressInfo.setText("Failed to extract resources: " + e.getMessage()));
+                        }
+                    }).start();
                 });
 
             } catch (IOException e) {
@@ -156,12 +232,17 @@ public class App extends Application {
             Platform.runLater(() -> {
                 Alert alert = new Alert(Alert.AlertType.ERROR, "Error downloading file: " + e.getMessage(), ButtonType.OK);
                 alert.showAndWait();
+                Platform.exit();
             });
-            log.error(e.toString());
         } finally {
-            //startApp(stage);
+            Platform.runLater(() -> startApp(stage));
+            PauseTransition delay = new PauseTransition(Duration.seconds(3));
+            delay.setOnFinished(event -> Platform.runLater(() -> {
+                Alert alert = new Alert(Alert.AlertType.INFORMATION, "Installation Completed!", ButtonType.OK);
+                alert.showAndWait();
+            }));
+            delay.play();
         }
-
     }
 
     private void startApp(Stage stage) {
@@ -179,7 +260,7 @@ public class App extends Application {
         Scene scene = new Scene(root, 1000, 800);
         stage.setScene(scene);
         stage.setMinHeight(800);
-        stage.setMinWidth(600);
+        stage.setMinWidth(1000);
         stage.setTitle("Sharlet");
         stage.show();
     }
@@ -440,85 +521,10 @@ public class App extends Application {
         return String.valueOf(pin);
     }
 
-    private void showDownloadProgress(Stage stage, File resDir) {
-        ProgressBar progressBar = new ProgressBar(0);
-        progressBar.setPrefWidth(300);
-
-        StackPane root = new StackPane();
-        root.getChildren().add(progressBar);
-        Scene scene = new Scene(root, 400, 200);
-
-        stage.setTitle("Downloading Resources...");
-        stage.setScene(scene);
-        stage.show();
-
-        App.progressBar = progressBar;
-    }
-
-    private void downloadAndUnzipResources(String downloadUrl, File destinationDir) {
-        new Thread(() -> {
-            try {
-                // Download the zip file
-                HttpURLConnection connection = (HttpURLConnection) new URL(downloadUrl).openConnection();
-                connection.setRequestMethod("GET");
-                connection.setDoInput(true);
-
-                long totalFileSize = connection.getContentLengthLong();
-                InputStream inputStream = connection.getInputStream();
-
-                // Prepare the destination zip file
-                File zipFile = new File(destinationDir, "resources.zip");
-                FileOutputStream outputStream = new FileOutputStream(zipFile);
-
-                // Download the file in chunks and update progress
-                byte[] buffer = new byte[1024];
-                long downloaded = 0;
-                int bytesRead;
-
-                // Progress reporting thread
-                long finalDownloaded = downloaded;
-                Thread progressThread = new Thread(() -> {
-                    while (finalDownloaded < totalFileSize) {
-                        double progress = (double) finalDownloaded / totalFileSize;
-                        Platform.runLater(() -> {
-                            progressBar.setProgress(progress);
-                        });
-                        try {
-                            Thread.sleep(100);
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
-                        }
-                    }
-                });
-                progressThread.start();
-
-                // Write data to the zip file
-                while ((bytesRead = inputStream.read(buffer)) != -1) {
-                    outputStream.write(buffer, 0, bytesRead);
-                    downloaded += bytesRead;
-                }
-
-                inputStream.close();
-                outputStream.close();
-
-                // Once the zip file is downloaded, unzip it
-                unzip(zipFile, destinationDir);
-
-                Platform.runLater(() -> {
-                    // Proceed with UI after download
-                    System.out.println("Download complete. Unzipping...");
-                });
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }).start();
-    }
-
     private void unzip(File zipFile, File destDir) throws IOException {
         if (!destDir.exists()) {
             destDir.mkdirs();
         }
-
         try (ZipInputStream zipIn = new ZipInputStream(new FileInputStream(zipFile))) {
             ZipEntry entry = zipIn.getNextEntry();
             while (entry != null) {
