@@ -4,14 +4,24 @@ import com.google.gson.Gson;
 import com.immo2n.Core.FileServer;
 import com.immo2n.DataClasses.SelectedFile;
 import com.immo2n.Etc.AppConfig;
+import com.squareup.okhttp.OkHttpClient;
+import com.squareup.okhttp.Request;
+import com.squareup.okhttp.Response;
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpHandler;
+import com.sun.net.httpserver.HttpServer;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.scene.Scene;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.ProgressBar;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.StackPane;
 import javafx.scene.web.WebView;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
@@ -23,12 +33,16 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.awt.*;
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
+import java.net.HttpURLConnection;
+import java.net.InetSocketAddress;
+import java.net.URL;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.List;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 public class App extends Application {
 
@@ -42,6 +56,7 @@ public class App extends Application {
     private static Thread appUiThread, fileServerThread;
     private static String serverPin = generatePin();
 
+    private static ProgressBar progressBar;
     private static FileServer fileServer;
 
     @Override
@@ -63,6 +78,95 @@ public class App extends Application {
 
     @Override
     public void start(Stage stage) {
+
+        Installer installer = new Installer();
+        boolean needInstall = installer.isInstalled();
+        String defaultLocation = Installer.staticPath;
+
+        if(needInstall){
+            FileChooser fileChooser = new FileChooser();
+            fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Directories", "*"));
+            fileChooser.setInitialDirectory(new File(defaultLocation));
+            File selectedDirectory = fileChooser.showSaveDialog(stage);
+            if (selectedDirectory != null) {
+                String downloadUrl = "https://example.com/resource.zip";
+                new Thread(() -> downloadZip(selectedDirectory, downloadUrl, stage)).start();
+            }
+        }
+        else startApp(stage);
+    }
+
+    private void downloadZip(File selectedDirectory, String downloadUrl, Stage stage) {
+
+        ProgressBar progressBar = new ProgressBar(0);
+        progressBar.setPrefWidth(300);
+
+        StackPane root = new StackPane();
+        root.getChildren().add(progressBar);
+        Scene scene = new Scene(root, 400, 200);
+
+        stage.setTitle("Downloading Resources...");
+        stage.setScene(scene);
+        Platform.runLater(stage::show);
+
+        OkHttpClient client = new OkHttpClient();
+        Request request = new Request.Builder().url(downloadUrl).build();
+
+        Response response;
+        try {
+            response = client.newCall(request).execute();
+
+            if (!response.isSuccessful()) {
+                throw new IOException("Failed to download file: " + response);
+            }
+
+            long contentLength = response.body().contentLength();
+            InputStream inputStream = response.body().byteStream();
+
+            File outputFile = new File(selectedDirectory.getAbsoluteFile(), "resources.zip");
+            try (FileOutputStream outputStream = new FileOutputStream(outputFile)) {
+                byte[] buffer = new byte[8192];
+                long totalBytesRead = 0;
+                int bytesRead;
+
+                while ((bytesRead = inputStream.read(buffer)) != -1) {
+                    outputStream.write(buffer, 0, bytesRead);
+                    totalBytesRead += bytesRead;
+                    double progress = (double) totalBytesRead / contentLength;
+                    Platform.runLater(() -> progressBar.setProgress(progress));
+                }
+
+                Platform.runLater(() -> {
+                    Alert alert = new Alert(Alert.AlertType.INFORMATION, "Download Completed!", ButtonType.OK);
+                    alert.showAndWait();
+
+                    System.out.println("CAN UNZIP HERE!!!");
+
+                });
+
+            } catch (IOException e) {
+                Platform.runLater(() -> {
+                    Alert alert = new Alert(Alert.AlertType.ERROR, "Download Failed: " + e.getMessage(), ButtonType.OK);
+                    alert.showAndWait();
+                });
+                log.error(e.toString());
+            }
+
+        } catch (IOException e) {
+            Platform.runLater(() -> {
+                Alert alert = new Alert(Alert.AlertType.ERROR, "Error downloading file: " + e.getMessage(), ButtonType.OK);
+                alert.showAndWait();
+            });
+            log.error(e.toString());
+        } finally {
+            //startApp(stage);
+        }
+
+    }
+
+    private void startApp(Stage stage) {
+        startServers();
+
         WebView webView = new WebView();
         webView.getEngine().load("http://localhost:" + AppConfig.APP_PORT);
 
@@ -71,18 +175,21 @@ public class App extends Application {
 
         BorderPane root = new BorderPane();
         root.setCenter(webView);
-        root.setTop(refreshButton);
 
         Scene scene = new Scene(root, 1000, 800);
         stage.setScene(scene);
         stage.setMinHeight(800);
         stage.setMinWidth(600);
-        String windowTitle = "Sharlet";
-        stage.setTitle(windowTitle);
+        stage.setTitle("Sharlet");
         stage.show();
     }
 
     public static void main(String[] args) {
+        startServers();
+        launch(args);
+    }
+
+    private static void startServers() {
         appUiThread = getAppUIthread();
         fileServerThread = new Thread(() -> {
             try {
@@ -99,18 +206,18 @@ public class App extends Application {
         });
         appUiThread.start();
         fileServerThread.start();
-        launch(args);
     }
 
     public static Thread getAppUIthread() {
         return new Thread(() -> {
+
             try {
                 appServer = new Server(AppConfig.APP_PORT);
 
                 ServletContextHandler context = new ServletContextHandler(ServletContextHandler.SESSIONS);
                 context.setContextPath("/");
 
-                context.setResourceBase("src/main/resources/static");
+                context.setResourceBase(AppConfig.staticPath);
                 context.addServlet(DefaultServlet.class, "/");
 
                 context.addServlet(new ServletHolder(new HttpServlet() {
@@ -235,6 +342,7 @@ public class App extends Application {
             } catch (Exception e) {
                 log.error("e", e);
             }
+
         });
     }
 
@@ -325,9 +433,113 @@ public class App extends Application {
             return null;
         }
     }
+
     public static String generatePin() {
         Random random = new Random();
         int pin = 10000 + random.nextInt(90000);
         return String.valueOf(pin);
     }
+
+    private void showDownloadProgress(Stage stage, File resDir) {
+        ProgressBar progressBar = new ProgressBar(0);
+        progressBar.setPrefWidth(300);
+
+        StackPane root = new StackPane();
+        root.getChildren().add(progressBar);
+        Scene scene = new Scene(root, 400, 200);
+
+        stage.setTitle("Downloading Resources...");
+        stage.setScene(scene);
+        stage.show();
+
+        App.progressBar = progressBar;
+    }
+
+    private void downloadAndUnzipResources(String downloadUrl, File destinationDir) {
+        new Thread(() -> {
+            try {
+                // Download the zip file
+                HttpURLConnection connection = (HttpURLConnection) new URL(downloadUrl).openConnection();
+                connection.setRequestMethod("GET");
+                connection.setDoInput(true);
+
+                long totalFileSize = connection.getContentLengthLong();
+                InputStream inputStream = connection.getInputStream();
+
+                // Prepare the destination zip file
+                File zipFile = new File(destinationDir, "resources.zip");
+                FileOutputStream outputStream = new FileOutputStream(zipFile);
+
+                // Download the file in chunks and update progress
+                byte[] buffer = new byte[1024];
+                long downloaded = 0;
+                int bytesRead;
+
+                // Progress reporting thread
+                long finalDownloaded = downloaded;
+                Thread progressThread = new Thread(() -> {
+                    while (finalDownloaded < totalFileSize) {
+                        double progress = (double) finalDownloaded / totalFileSize;
+                        Platform.runLater(() -> {
+                            progressBar.setProgress(progress);
+                        });
+                        try {
+                            Thread.sleep(100);
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                });
+                progressThread.start();
+
+                // Write data to the zip file
+                while ((bytesRead = inputStream.read(buffer)) != -1) {
+                    outputStream.write(buffer, 0, bytesRead);
+                    downloaded += bytesRead;
+                }
+
+                inputStream.close();
+                outputStream.close();
+
+                // Once the zip file is downloaded, unzip it
+                unzip(zipFile, destinationDir);
+
+                Platform.runLater(() -> {
+                    // Proceed with UI after download
+                    System.out.println("Download complete. Unzipping...");
+                });
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }).start();
+    }
+
+    private void unzip(File zipFile, File destDir) throws IOException {
+        if (!destDir.exists()) {
+            destDir.mkdirs();
+        }
+
+        try (ZipInputStream zipIn = new ZipInputStream(new FileInputStream(zipFile))) {
+            ZipEntry entry = zipIn.getNextEntry();
+            while (entry != null) {
+                File file = new File(destDir, entry.getName());
+                if (entry.isDirectory()) {
+                    file.mkdirs();
+                } else {
+                    File parentDir = file.getParentFile();
+                    if (parentDir != null) parentDir.mkdirs();
+                    try (FileOutputStream out = new FileOutputStream(file)) {
+                        byte[] buffer = new byte[1024];
+                        int len;
+                        while ((len = zipIn.read(buffer)) > 0) {
+                            out.write(buffer, 0, len);
+                        }
+                    }
+                }
+                zipIn.closeEntry();
+                entry = zipIn.getNextEntry();
+            }
+        }
+    }
+
 }

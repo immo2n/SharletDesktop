@@ -19,44 +19,47 @@
     <plugins>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-jar-plugin</artifactId>
-        <version>3.1.0</version>
-        <configuration>
-          <archive>
-            <manifest>
-              <addClasspath>true</addClasspath>
-              <mainClass>com.immo2n.App</mainClass>
-            </manifest>
-          </archive>
-        </configuration>
-      </plugin>
-      <plugin>
-        <groupId>org.openjfx</groupId>
-        <artifactId>javafx-maven-plugin</artifactId>
-        <version>0.0.5</version>
+        <artifactId>maven-shade-plugin</artifactId>
+        <version>3.2.4</version>
         <executions>
           <execution>
             <goals>
-              <goal>run</goal>
+              <goal>shade</goal>
             </goals>
+            <configuration>
+              <shadedArtifactAttached>true</shadedArtifactAttached>
+              <transformers>
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                  <mainClass>com.immo2n.App</mainClass>
+                </transformer>
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
+              </transformers>
+              <artifactSet>
+                <includes>
+                  <include>org.openjfx:javafx-controls</include>
+                  <include>org.openjfx:javafx-base</include>
+                  <include>org.openjfx:javafx-graphics</include>
+                  <include>org.openjfx:javafx-web</include>
+                </includes>
+                <excludes>
+                  <exclude>com/sun/javafx/**</exclude>
+                </excludes>
+              </artifactSet>
+            </configuration>
           </execution>
         </executions>
-        <configuration>
-          <mainClass>com.immo2n.App</mainClass>
-        </configuration>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <configuration>
-          <source>11</source>
-          <target>11</target>
-        </configuration>
       </plugin>
     </plugins>
   </build>
 
   <dependencies>
+
+    <dependency>
+      <groupId>com.squareup.okhttp</groupId>
+      <artifactId>okhttp</artifactId>
+      <version>2.7.5</version>
+    </dependency>
+
     <dependency>
       <groupId>com.google.code.gson</groupId>
       <artifactId>gson</artifactId>
@@ -75,18 +78,29 @@
       <version>2.7</version>
     </dependency>
 
+    <!-- JavaFX dependencies -->
     <dependency>
       <groupId>org.openjfx</groupId>
       <artifactId>javafx-controls</artifactId>
       <version>19</version>
     </dependency>
-
+    <dependency>
+      <groupId>org.openjfx</groupId>
+      <artifactId>javafx-base</artifactId>
+      <version>19</version>
+    </dependency>
+    <dependency>
+      <groupId>org.openjfx</groupId>
+      <artifactId>javafx-graphics</artifactId>
+      <version>19</version>
+    </dependency>
     <dependency>
       <groupId>org.openjfx</groupId>
       <artifactId>javafx-web</artifactId>
       <version>19</version>
     </dependency>
 
+    <!-- Jetty dependencies -->
     <dependency>
       <groupId>org.eclipse.jetty</groupId>
       <artifactId>jetty-server</artifactId>
@@ -98,7 +112,5 @@
       <artifactId>jetty-webapp</artifactId>
       <version>11.0.6</version>
     </dependency>
-
   </dependencies>
-
 </project>

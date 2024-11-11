@@ -17,7 +17,7 @@ import java.nio.charset.StandardCharsets;
 
 public class FileServer {
     private static final Logger log = LoggerFactory.getLogger(FileServer.class);
-    protected static String staticLocation = "src/main/resources/static";
+    protected static String staticLocation = String.valueOf(App.class.getClassLoader().getResource("static"));
     protected static String serverPin = null;
     private final HttpServer server;
     private final Gson gson = new Gson();
