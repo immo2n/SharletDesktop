@@ -295,4 +295,13 @@ $(document).ready(()=> {
             height: 500
         });
     });
+    setTimeout(() => {
+        const loading = $('#loading'), main = $('#main');
+        loading.css("opacity", "0"),
+        main.css("display", "block");
+        setTimeout(()=>{
+            loading.remove()
+        }
+        , 300);
+    }, 1500);
 });
