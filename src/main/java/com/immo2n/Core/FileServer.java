@@ -44,6 +44,12 @@ public class FileServer {
         });
     }
 
+    public void changeServerPin(String pin){
+        serverPin = pin;
+        setupServerIndex(server);
+        syncFilesContexts();
+    }
+
     private void setupReceiver(HttpServer server) {
         //Css
         server.createContext("/css/main.css", loadStaticFile(staticLocation + "/receiver/css/main.css"));

@@ -1,9 +1,3 @@
-var qrcode = new QRCode(document.getElementById("qr"), {
-    text: "https://example.com",
-    width: 500,
-    height: 500
-});
-
 const fileCount = $('#files-count');
 const totalSent = $('#files-count');
 const transferSpeed = $('#transfer-speed');
@@ -291,3 +285,14 @@ const resetFileList = (searchMdde = false) => {
 };
 
 loadFilesChunk();
+
+$(document).ready(()=> {
+    $.get('/pin').done((d) => {
+        $("#mainLink").html('<i class="fas fa-link"></i> http://192.168.0.198:5566<br><i class="fas fa-key"></i> '+d);
+        new QRCode(document.getElementById("qr"), {
+            text: "http://192.168.0.198:5566/x-" + d + "/receive/",
+            width: 500,
+            height: 500
+        });
+    });
+});

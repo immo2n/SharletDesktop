@@ -40,6 +40,7 @@ public class App extends Application {
     private static Integer lastIndex = 0;
     private static Server appServer;
     private static Thread appUiThread, fileServerThread;
+    private static String serverPin = generatePin();
 
     private static FileServer fileServer;
 
@@ -88,7 +89,7 @@ public class App extends Application {
                 fileServer = new FileServer(
                         "192.168.0.198",
                         AppConfig.FILE_SERVER_PORT,
-                        "12345"
+                        serverPin
                 );
                 fileServer.start();
             }
@@ -133,6 +134,19 @@ public class App extends Application {
                         response.getWriter().write("OK");
                     }
                 }), "/clear-all");
+
+                context.addServlet(new ServletHolder(new HttpServlet() {
+                    @Override
+                    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
+                        String setNew = request.getParameter("new");
+                        if(setNew != null && !setNew.isEmpty()) {
+                            serverPin = generatePin();
+                            fileServer.changeServerPin(serverPin);
+                        }
+                        response.setStatus(HttpServletResponse.SC_OK);
+                        response.getWriter().write(serverPin);
+                    }
+                }), "/pin");
 
                 context.addServlet(new ServletHolder(new HttpServlet() {
                     @Override
@@ -310,5 +324,10 @@ public class App extends Application {
             System.out.println("Sharlet process: MD5 algorithm not found.");
             return null;
         }
+    }
+    public static String generatePin() {
+        Random random = new Random();
+        int pin = 10000 + random.nextInt(90000);
+        return String.valueOf(pin);
     }
 }
